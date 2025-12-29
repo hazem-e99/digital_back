@@ -73,6 +73,7 @@ async function trackMetaPurchase(eventData) {
   const payload = {
     data: [{
       event_name: 'Purchase',
+      event_id: eventData.order_id, // CRITICAL for deduplication
       event_time: Math.floor(Date.now() / 1000),
       action_source: 'website',
       event_source_url: eventData.source_url || FRONTEND_URL,
@@ -137,7 +138,7 @@ async function trackTikTokPurchase(eventData) {
     },
     properties: {
       currency: eventData.currency || 'USD',
-      value: eventData.value || 14.00,
+      value: eventData.value || 10.00,
       content_type: 'product',
       content_id: 'digital_bundle',
       content_name: 'Digital Products Bundle',
@@ -185,7 +186,7 @@ function hashData(data) {
 async function trackPurchaseServerSide(session, req) {
   const eventData = {
     email: session.customer_details?.email,
-    value: (session.amount_total || 1400) / 100,
+    value: (session.amount_total || 1000) / 100,
     currency: (session.currency || 'usd').toUpperCase(),
     order_id: session.id,
     source_url: `${FRONTEND_URL}/success`,
