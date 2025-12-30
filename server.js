@@ -388,35 +388,40 @@ app.post('/webhook', async (req, res) => {
 
   console.log('📨 Webhook received:', event.type);
 
-  // Handle the event
-  switch (event.type) {
-    case 'checkout.session.completed':
-      const session = event.data.object;
-      console.log('✅ Payment successful!');
-      console.log('   Session ID:', session.id);
-      console.log('   Customer Email:', session.customer_details?.email);
-      console.log('   Amount:', session.amount_total / 100, session.currency.toUpperCase());
-      
-      // 🎯 SERVER-SIDE TRACKING - This is the most reliable way!
-      // Tracking happens here regardless of what happens on the client side
-      await trackPurchaseServerSide(session, req);
-      
-      break;
-
-    case 'checkout.session.expired':
-      console.log('⏰ Checkout session expired:', event.data.object.id);
-      break;
-
-    case 'payment_intent.payment_failed':
-      console.log('❌ Payment failed:', event.data.object.id);
-      break;
-
-    default:
-      console.log(`📩 Unhandled event type: ${event.type}`);
-  }
-
-  // Return a 200 response to acknowledge receipt of the event
+  // Return a 200 response to acknowledge receipt of the event immediately
+  // This prevents Stripe from retrying the webhook if tracking takes too long
   res.json({ received: true });
+
+  // Handle the event asynchronously
+  (async () => {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        console.log('✅ Payment successful!');
+        console.log('   Session ID:', session.id);
+        console.log('   Customer Email:', session.customer_details?.email);
+        console.log('   Amount:', session.amount_total / 100, session.currency.toUpperCase());
+        
+        // 🎯 SERVER-SIDE TRACKING
+        try {
+          await trackPurchaseServerSide(session, req);
+        } catch (err) {
+          console.error('❌ Tracking error:', err);
+        }
+        break;
+
+      case 'checkout.session.expired':
+        console.log('⏰ Checkout session expired:', event.data.object.id);
+        break;
+
+      case 'payment_intent.payment_failed':
+        console.log('❌ Payment failed:', event.data.object.id);
+        break;
+
+      default:
+        console.log(`📩 Unhandled event type: ${event.type}`);
+    }
+  })().catch(err => console.error('Error processing webhook:', err));
 });
 
 /**
