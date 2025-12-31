@@ -29,6 +29,11 @@ const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const TIKTOK_PIXEL_ID = process.env.TIKTOK_PIXEL_ID || 'D56N4F3C77U9GK0PGLUG';
 const TIKTOK_ACCESS_TOKEN = process.env.TIKTOK_ACCESS_TOKEN;
 
+// ============================================
+// IDEMPOTENCY - Prevent Duplicate Tracking
+// ============================================
+const processedSessions = new Set();
+
 // Product configuration
 const PRODUCTS = [
   {
@@ -184,6 +189,12 @@ function hashData(data) {
  * Track purchase on all platforms
  */
 async function trackPurchaseServerSide(session, req) {
+  // ⚡ IDEMPOTENCY CHECK - Prevent duplicate tracking
+  if (processedSessions.has(session.id)) {
+    console.log('⚠️ Session already tracked, skipping:', session.id);
+    return;
+  }
+
   const eventData = {
     email: session.customer_details?.email,
     value: (session.amount_total || 1000) / 100,
@@ -204,6 +215,10 @@ async function trackPurchaseServerSide(session, req) {
     trackMetaPurchase(eventData),
     trackTikTokPurchase(eventData)
   ]);
+
+  // Mark this session as processed
+  processedSessions.add(session.id);
+  console.log('✅ Session marked as processed:', session.id);
 
   console.log('🎯 Server-Side Tracking completed!');
 }
